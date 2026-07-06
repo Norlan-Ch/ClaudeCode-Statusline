@@ -1,6 +1,6 @@
 # Claude Code 自定义 Statusline 设计文档
 
-> 最后更新：2026-07-06（第2行新增 Week 周窗口用量[绝对重置时刻]、第3行 RAM 三档变色 + 各段 emoji 前缀，均已端到端验证）
+> 最后更新：2026-07-06（配色收敛：path 橙[256 色]/干净分支亮蓝；Usage 改 5h/7d 标签[去订阅档位、去凭据读取]；第3行仅 emoji、无文字标签；均已端到端验证）
 
 ## 概述
 
@@ -17,8 +17,8 @@
 渲染样例：
 ```
 ~/workspace/mine | main
-Opus 4.8 (Max) | 60K/1.0M (6%) | Max 25% (3h 45m / 5h) | Week 41% (3d 4h / Thu 05:27)
-🕐 Up 1h 23m | 💾 RAM 21% (4.9G/23G) | ⏳ Cache 21:48 | 💰 $1.23
+Opus 4.8 (Max) | 60K/1.0M (6%) | 5h 2% (3h 50min) | 7d 5% (2d 7h, Wed 19:00)
+🕐 1h 23m | 💾 21% (4.9G/23G) | ⏳ 21:48 | 💰 $1.23
 ```
 
 ## 文件清单
@@ -47,9 +47,9 @@ Opus 4.8 (Max) | 60K/1.0M (6%) | Max 25% (3h 45m / 5h) | Week 41% (3d 4h / Thu 0
 
 - **段内降级**：任一区域数据缺失 → 该区域（含前导分隔符）整段隐藏。
 - **整行降级**：某一行所有区域都缺失 → 该行不输出（不留空行）；只有部分行有内容就只输出那些行。
-- **三档变色**（Token 用量、Usage 配额[5h/周]、以及第3行 RAM）：<50% 绿 / 50–79% 黄 / ≥80% 红。第3行**其余段**（会话时长/缓存/花费）一律默认前景色，仅「缓存已过期」用亮灰；RAM 是第3行**唯一**参与变色的段。
-- **颜色**（16 色 ANSI）：分隔符亮灰 `\e[90m`、路径橙 `\e[38;5;208m`、模型品红 `\e[35m`、Git 干净分支亮蓝 `\e[94m`、用量绿/黄/红；每色块后 `\e[0m`。
-- **第3行 emoji 前缀**（2026-07-06，fable 5 选型）：`🕐 Up` / `💾 RAM` / `⏳ Cache` / `💰 $`。均 Unicode 6.0 emoji-presentation、**无需 VS16(U+FE0F)**、等宽终端宽度恒 2 列（刻意避开 ⏱/⏲ 这类需 VS16、宽度不定者，及 📅/🗓 会把 `HH:MM` 误读为日期者）。作**前缀保留文字标签**（`💾 42%` 单看不辨 RAM/CPU，标签不可省；仅花费段因 `$` 自带标签而无需加词）。段间分隔符仍统一 ` | `（不因 emoji 改双空格，保持三行分隔风格一致）。
+- **三档变色**（Token 用量、Usage 配额[5h/7d]、以及第3行 RAM）：<50% 绿 / 50–79% 黄 / ≥80% 红。第3行**其余段**（会话时长/缓存/花费）一律默认前景色，仅「缓存已过期」用亮灰；RAM 是第3行**唯一**参与变色的段。
+- **颜色**（多为 16 色 ANSI，路径用 256 色）：分隔符亮灰 `\e[90m`、路径橙 `\e[38;5;208m`（256 色）、模型品红 `\e[35m`、Git 干净分支亮蓝 `\e[94m`、用量绿/黄/红；每色块后 `\e[0m`。
+- **第3行 emoji（仅 emoji、无文字标签）**（2026-07-06；emoji 由 fable 5 选型）：`🕐 <时长>` / `💾 <RAM%>` / `⏳ <时刻/expired>` / `💰 <$>`。均 Unicode 6.0 emoji-presentation、**无需 VS16(U+FE0F)**、等宽终端宽度恒 2 列（刻意避开 ⏱/⏲ 这类需 VS16、宽度不定者，及 📅/🗓 会把 `HH:MM` 误读为日期者）。**2026-07-06 起移除 Up/RAM/Cache 文字标签**，仅留 emoji 承载类别（🕐时长 / 💾内存 / ⏳缓存 / 💰花费；花费段 `$` 亦自带含义）。段间分隔符仍统一 ` | `（不因 emoji 改双空格，保持三行分隔风格一致）。
 - 渲染装入 `line1_segments` / `line2_segments` / `line3_segments` 三数组，各自拼接、`[ -n ]` 判空后 `printf`。
 
 ## 各区域规格
@@ -68,26 +68,28 @@ Opus 4.8 (Max) | 60K/1.0M (6%) | Max 25% (3h 45m / 5h) | Week 41% (3d 4h / Thu 0
 ### 第2行 · Token 用量（三档变色）
 `5K/200K (2%)`。主路径 stdin `context_window.*`（百分比**优先复用 stdin 的 `used_percentage`**，仅其缺失时才 `t/s*100` 自算）；回退解析 transcript 最后一条 usage（`input+cache_creation+cache_read`，窗口硬编码 200000）。`format_k`：≥999,500→`X.XM`（M 档门槛 999,500 是为 K 档进位，`999,999→1.0M`）、≥1,000→`XK`、<1,000 原值。
 
-### 第2行 · Usage 配额（5h + 周，三档变色）
-**5h 窗口** `Max 55% (2h 10m / 5h)`。计划名读 `.credentials.json` 的 `subscriptionType`（不读 `accessToken`）。主路径 stdin `rate_limits.five_hour.*`，零网络零缓存。**计划名与 5h 数据缺一即整段隐藏**——`plan_name` 为空（无 `.credentials.json` 或 `subscriptionType` 缺失）时，即便 stdin 有 `rate_limits` 也不显示。剩余不足 1 小时省略小时位。
+### 第2行 · Usage 配额（5h + 7d，标签即窗口大小，三档变色）
+**2026-07-06 重构**：标签由订阅档位（`Max`）改为**窗口大小**（`5h` / `7d`），并**彻底移除 `.credentials.json` 读取**（原只为取档位名，现无用）；两窗口各自仅凭自身 `rate_limits` 数据 gate（零网络、零缓存、零凭据）。
 
-**周窗口（Week，2026-07-06 新增）** `Week 41% (3d 4h / Thu 05:27)`。同源 stdin `rate_limits.seven_day.*`（字段与 5h 完全一致：`used_percentage` / `resets_at`，`to_epoch` 兼容 epoch 与 ISO；权威 schema 经 claude-code-guide 确认无 opus 专属窗口）。标签固定 `Week`（不复用计划名，避免与 5h 段 `Max` 重复）。gate 与 5h 对称（需 `plan_name` + 自身数据）但**独立于 five_hour**：`rate_limits` 只含 seven_day 时 Week 照常显示、5h 段隐藏。剩余时间三分支：≥1 天 `Nd Nh`、≥1 小时 `Nh Nm`、否则 `Nm`。**重置显示为绝对时刻**「星期缩写 + 24h」`Thu 05:27`（`LC_ALL=C date '+%a %H:%M'` 强制英文星期）——而非 `/ 7d` 固定文案，理由同缓存段：绝对时刻不依赖 now、空闲不失真，星期缩写为最长 7 天跨度消歧。`rate_limits` 仅 Pro/Max 且首个 API 响应后出现，故 `// empty` 兜底。
+**5h 窗口** `5h 2% (3h 50min)`。数据源 stdin `rate_limits.five_hour.*`；gate：仅 `five_pct_raw` 存在即显示。剩余时间：≥1 小时 `Xh Ymin`、否则 `Ymin`（**不显示绝对时刻**——5h 窗口短、相对剩余已够）。
 
-### 第3行 · 会话时长（🕐 Up，默认色）
-数据源 stdin `cost.total_duration_ms`（会话累计 wall-clock 毫秒）。格式（分钟粒度）：`<1m` / `45m` / `1h 23m`。`cost` 对象缺失（旧版 CLI）→ 隐藏。
+**7d 窗口** `7d 5% (2d 7h, Wed 19:00)`。同源 stdin `rate_limits.seven_day.*`（字段与 5h 一致：`used_percentage` / `resets_at`，`to_epoch` 兼容 epoch 与 ISO；权威 schema 经 claude-code-guide 确认无 opus 专属窗口）。gate 独立于 five_hour（各自数据）：只含 seven_day 时 7d 照常显示、5h 隐藏。剩余时间三分支：≥1 天 `Xd Yh`、≥1 小时 `Xh Ymin`、否则 `Ymin`；后接 `, ` 再跟**绝对重置时刻**「星期缩写 + 24h」`Wed 19:00`（`LC_ALL=C date '+%a %H:%M'` 强制英文星期）——绝对时刻不依赖 now、空闲不失真，星期缩写为最长 7 天跨度消歧。`rate_limits` 仅 Pro/Max 且首个 API 响应后出现，故 `// empty` 兜底。
 
-### 第3行 · 内存（💾 RAM，三档变色）
-系统整体内存：读 `/proc/meminfo` 的 `MemTotal`/`MemAvailable`（kB）。`used% = round((T-A)/T*100)`；绝对值 GiB，`fmt_gib`：≥10G 取整（`23G`）、<10G 一位小数（`4.9G`）。展示 `💾 RAM 21% (4.9G/23G)`。`/proc/meminfo` 读不到 → 隐藏。**2026-07-06 起套三档变色**（复用 `color_for_pct`，<50 绿 / 50–79 黄 / ≥80 红），是第3行唯一参与变色的段；本机 RAM 基线约 22–27%（24 GiB WSL2），平时绿、负载上来才黄/红。
+### 第3行 · 会话时长（🕐，默认色）
+数据源 stdin `cost.total_duration_ms`（会话累计 wall-clock 毫秒）。显示 `🕐 <时长>`（2026-07-06 起去 "Up" 文字）；格式（分钟粒度）：`<1m` / `45m` / `1h 23m`。`cost` 对象缺失（旧版 CLI）→ 隐藏。
 
-### 第3行 · 缓存过期时刻（⏳ Cache，默认色 / 过期灰）
+### 第3行 · 内存（💾，三档变色）
+系统整体内存：读 `/proc/meminfo` 的 `MemTotal`/`MemAvailable`（kB）。`used% = round((T-A)/T*100)`；绝对值 GiB，`fmt_gib`：≥10G 取整（`23G`）、<10G 一位小数（`4.9G`）。展示 `💾 21% (4.9G/23G)`（2026-07-06 起去 "RAM" 文字）。`/proc/meminfo` 读不到 → 隐藏。**2026-07-06 起套三档变色**（复用 `color_for_pct`，<50 绿 / 50–79 黄 / ≥80 红），是第3行唯一参与变色的段；本机 RAM 基线约 22–27%（24 GiB WSL2），平时绿、负载上来才黄/红。
 
-显示 prompt cache 将被丢弃的**本地绝对时刻**（`Cache 21:48`），而非相对倒计时。
+### 第3行 · 缓存过期时刻（⏳，默认色 / 过期灰）
+
+显示 prompt cache 将被丢弃的**本地绝对时刻**（`⏳ 21:48`，2026-07-06 起去 "Cache" 文字），而非相对倒计时。
 
 **为什么用绝对时刻**：相对倒计时是 time-based 数据，随真实时间衰减，空闲时若不 `refreshInterval` 定时刷新就会「过时乐观」误导（屏幕卡在 58m，实际已快过期）；绝对时刻只依赖 `起算点 + TTL`（都固定、不依赖 now），**一次算出永不过时、无需定时刷新、零空闲开销**，且空闲静止时仍可自行判读（瞥一眼当前几点即知是否已过）。与「事件驱动、不折腾空闲机器」的整体哲学一致。
 
 **动态 TTL（关键）**：Claude 的 prompt cache TTL 有两种——5 分钟（API 默认，`ephemeral`）与 1 小时（`ttl: "1h"`），**没有 0.5h**。Claude Code 实际用哪种由它自己决定；**本机实测全程用 1h**（可能与 Max 计划相关）。故不硬编码、不按计划猜，而是**从 transcript 的 `usage.cache_creation` 拆分动态读真实 TTL**：`ephemeral_1h_input_tokens>0 → 3600s`，否则 `ephemeral_5m_input_tokens>0 → 300s`。无论 CLI 未来用哪种都自动正确。
 
-**算法**：tail transcript 末尾 ~50 行 → 起算点 = 最后一条 `type=="assistant"` **且带 `usage`** 的 `timestamp`（ISO8601，`to_epoch` 转换）；TTL = 倒序最近一条 `cache_creation` 非零记录的档位；`expires_at = 起算点 + TTL`。渲染：`expires_at > now → Cache HH:MM`（`date -d @epoch +%H:%M` 本地时区，默认色）；`≤ now → Cache expired`（亮灰）；transcript/assistant/cache_creation 任一缺失 → 隐藏。无 warning 中间态（「快过期」本身 time-based，与「不刷新」冲突）。
+**算法**：tail transcript 末尾 ~50 行 → 起算点 = 最后一条 `type=="assistant"` **且带 `usage`** 的 `timestamp`（ISO8601，`to_epoch` 转换）；TTL = 倒序最近一条 `cache_creation` 非零记录的档位；`expires_at = 起算点 + TTL`。渲染：`expires_at > now → ⏳ HH:MM`（`date -d @epoch +%H:%M` 本地时区，默认色）；`≤ now → ⏳ expired`（亮灰）；transcript/assistant/cache_creation 任一缺失 → 隐藏。无 warning 中间态（「快过期」本身 time-based，与「不刷新」冲突）。
 
 ### 第3行 · 花费（💰 $，默认色）
 数据源 stdin `cost.total_cost_usd`（会话累计美元）。`cost_fmt`（jq 判小数位 + printf 补零）：≥1→2 位（`$1.23`）、≥0.1→3 位（`$0.123`）、>0→4 位（`$0.0042`）、`≤0`→`$0.00`（会话累计花费不会为负，负数也归 2 位）。缺失/非数字 → 隐藏。你是 Pro/Max 直连，无 Bedrock/Vertex 顾虑。
@@ -101,6 +103,12 @@ Opus 4.8 (Max) | 60K/1.0M (6%) | Max 25% (3h 45m / 5h) | Week 41% (3d 4h / Thu 0
 **绝不包含 accessToken 或任何凭据。** 多会话共享同一文件会互相覆盖。
 
 ## 验收记录
+
+**2026-07-06 配色收敛 + Usage 标签化 + 第3行去文字**，主会话 Bash 端到端实测通过：
+- 配色：path 橙 `\e[38;5;208m`（256 色，与分支亮蓝/黄及全部现用色区隔）；干净分支亮蓝、脏分支黄 `*N`。
+- Usage：`5h 2% (3h 50min)` / `7d 5% (2d 7h, Wed 19:00)`——去订阅档位、标签改窗口大小、**彻底移除 `.credentials.json` 读取**；5h 只显剩余、7d 剩余 + `, ` + 绝对重置时刻（星期强制英文）。剩余三分支 `Xd Yh` / `Xh Ymin` / `Ymin` 均验。
+- 第3行仅 emoji（去 Up/RAM/Cache 文字）：`🕐 1h 23m | 💾 28% (…) | ⏳ 18:30 | 💰 $0.42`；过期 `⏳ expired`（灰）。
+- 降级：无 `rate_limits` → 5h/7d 一并隐藏；仅 `seven_day` → 7d 显示、5h 隐藏。`bash -n` 通过。
 
 **2026-07-06 Week 周用量 + RAM 变色 + 第3行 emoji**，主会话 Bash 端到端实测通过（构造多组 stdin/transcript）：
 - 全量：第2行尾部 `Week 41% (3d 4h / Thu 05:27)`（绿）；第3行 `🕐 Up 1h 23m | 💾 RAM 27% (6.2G/23G)`（绿）`| 💰 $0.42`。

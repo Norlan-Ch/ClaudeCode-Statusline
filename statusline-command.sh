@@ -112,7 +112,7 @@ has_cost=$(printf '%s' "$input" | jq -r 'if .cost != null then "true" else "fals
 line1_segments=()   # 第1行：路径、Git分支
 line2_segments=()   # 第2行：模型、Token用量、Usage配额
 line3_segments=()   # 第3行：会话时长、内存、缓存过期时刻、花费
-rendered_names=()   # 调试标签：path/git/model/token/quota/up/ram/cache/cost
+rendered_names=()   # 调试标签：path/git/model/token/quota/week/up/ram/cache/cost
 
 # ================= 1. 路径区域：青色，home 缩写为 ~，不截断 =================
 cwd=$(printf '%s' "$input" | jq -r '.workspace.current_dir // empty' 2>/dev/null)
@@ -222,23 +222,9 @@ if [ -n "$ctx_tokens" ] && [ -n "$ctx_size" ] && [ "$ctx_size" != "0" ]; then
     fi
 fi
 
-# ================= 5. Usage 配额区域 =================
-# 计划名来自本地 OAuth 凭据；5 小时窗口用量直接取 stdin 自带的 rate_limits.five_hour
-#（无网络请求、无缓存）。stdin 无该字段时（旧版 CLI 降级）配额区域整段隐藏。
-credentials_file="$HOME/.claude/.credentials.json"
-
-plan_raw=""
-[ -f "$credentials_file" ] && plan_raw=$(jq -r '.claudeAiOauth.subscriptionType // empty' "$credentials_file" 2>/dev/null)
-
-plan_name=""
-case "$plan_raw" in
-    pro) plan_name="Pro" ;;
-    max) plan_name="Max" ;;
-    team) plan_name="Team" ;;
-    enterprise) plan_name="Enterprise" ;;
-    "") plan_name="" ;;
-    *) plan_name="$(printf '%s' "${plan_raw^}")" ;;
-esac
+# ================= 5. Usage 配额区域（5h + 7d，标签即窗口大小，不显示订阅档位）=================
+# 直接取 stdin 自带的 rate_limits（无网络、无缓存、不读任何凭据）；两窗口各自独立 gate
+# 于自身数据，某窗口数据缺失（旧版 CLI 降级 / 该窗口未下发）则该段整段隐藏。
 
 # 调试字段
 quota_source="hidden"
@@ -247,12 +233,12 @@ quota_source="hidden"
 five_pct_raw=$(printf '%s' "$input" | jq -r '.rate_limits.five_hour.used_percentage // empty' 2>/dev/null)
 five_reset_raw=$(printf '%s' "$input" | jq -r '.rate_limits.five_hour.resets_at // empty' 2>/dev/null)
 
-if [ -n "$plan_name" ] && [ -n "$five_pct_raw" ]; then
+if [ -n "$five_pct_raw" ]; then
     quota_source="stdin_rate_limits"
     quota_pct=$(round_num "$five_pct_raw")
     if [ -n "$quota_pct" ]; then
         quota_color=$(color_for_pct "$quota_pct")
-        quota_str="${plan_name} ${quota_pct}%"
+        quota_str="5h ${quota_pct}%"
         if [ -n "$five_reset_raw" ]; then
             reset_epoch=$(to_epoch "$five_reset_raw")
             if [[ "$reset_epoch" =~ ^[0-9]+$ ]]; then
@@ -262,10 +248,10 @@ if [ -n "$plan_name" ] && [ -n "$five_pct_raw" ]; then
                     remain_hr=$(( remain / 3600 ))
                     remain_min=$(( (remain % 3600) / 60 ))
                     if [ "$remain_hr" -ge 1 ]; then
-                        quota_str="${quota_str} (${remain_hr}h ${remain_min}m / 5h)"
+                        quota_str="${quota_str} (${remain_hr}h ${remain_min}min)"
                     else
                         # 不足 1 小时：省略小时位，只显示分钟
-                        quota_str="${quota_str} (${remain_min}m / 5h)"
+                        quota_str="${quota_str} (${remain_min}min)"
                     fi
                 fi
             fi
@@ -275,17 +261,17 @@ if [ -n "$plan_name" ] && [ -n "$five_pct_raw" ]; then
     fi
 fi
 
-# ---- 7 天（周）窗口用量：同源 stdin 的 rate_limits.seven_day，标签 "Week" ----
+# ---- 7 天窗口用量：同源 stdin 的 rate_limits.seven_day，标签 "7d" ----
 # 字段与 five_hour 完全一致（used_percentage / resets_at）；仅 Pro/Max 且首个 API
-# 响应后出现，可独立于 five_hour 缺失，故用 // empty 兜底。gate 与 5h 对称（需 plan_name）。
+# 响应后出现，独立于 five_hour（各自 gate），故用 // empty 兜底。
 seven_pct_raw=$(printf '%s' "$input" | jq -r '.rate_limits.seven_day.used_percentage // empty' 2>/dev/null)
 seven_reset_raw=$(printf '%s' "$input" | jq -r '.rate_limits.seven_day.resets_at // empty' 2>/dev/null)
 
-if [ -n "$plan_name" ] && [ -n "$seven_pct_raw" ]; then
+if [ -n "$seven_pct_raw" ]; then
     week_pct=$(round_num "$seven_pct_raw")
     if [ -n "$week_pct" ]; then
         week_color=$(color_for_pct "$week_pct")
-        week_str="Week ${week_pct}%"
+        week_str="7d ${week_pct}%"
         if [ -n "$seven_reset_raw" ]; then
             week_reset_epoch=$(to_epoch "$seven_reset_raw")
             if [[ "$week_reset_epoch" =~ ^[0-9]+$ ]]; then
@@ -298,14 +284,14 @@ if [ -n "$plan_name" ] && [ -n "$seven_pct_raw" ]; then
                     if [ "$week_d" -ge 1 ]; then
                         week_left="${week_d}d ${week_h}h"
                     elif [ "$week_h" -ge 1 ]; then
-                        week_left="${week_h}h ${week_m}m"
+                        week_left="${week_h}h ${week_m}min"
                     else
-                        week_left="${week_m}m"
+                        week_left="${week_m}min"
                     fi
                     # 绝对重置时刻：星期缩写 + 24h 时钟；强制 C locale 保证英文 Fri/Mon（否则随系统语言可能出中文）
                     week_reset_at=$(LC_ALL=C date -d "@${week_reset_epoch}" '+%a %H:%M' 2>/dev/null)
                     if [ -n "$week_reset_at" ]; then
-                        week_str="${week_str} (${week_left} / ${week_reset_at})"
+                        week_str="${week_str} (${week_left}, ${week_reset_at})"
                     else
                         week_str="${week_str} (${week_left})"
                     fi
@@ -329,7 +315,7 @@ if [[ "$dur_ms" =~ ^[0-9]+$ ]]; then
         end
     ' 2>/dev/null)
     if [ -n "$dur_str" ]; then
-        line3_segments+=("${E_UP} Up ${dur_str}")
+        line3_segments+=("${E_UP} ${dur_str}")
         rendered_names+=("up")
     fi
 fi
@@ -347,7 +333,7 @@ if [ -r /proc/meminfo ]; then
         if [ -n "$mem_pct" ] && [ -n "$mem_used_str" ] && [ -n "$mem_total_str" ]; then
             # 内存占用三档变色（复用 color_for_pct：<50 绿 / 50-79 黄 / >=80 红），与第2行配色一致
             ram_color=$(color_for_pct "$mem_pct")
-            line3_segments+=("${ram_color}${E_RAM} RAM ${mem_pct}% (${mem_used_str}/${mem_total_str})${C_RESET}")
+            line3_segments+=("${ram_color}${E_RAM} ${mem_pct}% (${mem_used_str}/${mem_total_str})${C_RESET}")
             rendered_names+=("ram")
         fi
     fi
@@ -357,7 +343,7 @@ fi
 # 显示 prompt cache 将被丢弃的"本地绝对时刻"（而非相对倒计时，从而无需定时刷新）。
 # 起算点：transcript 末尾若干行里最后一条 assistant 的 timestamp。
 # TTL 动态判定：最近一条 cache_creation 若 ephemeral_1h>0 -> 3600s，否则 ephemeral_5m>0 -> 300s。
-# 未过期 -> "Cache HH:MM"（默认色）；已过期 -> "Cache expired"（亮灰）；数据缺失 -> 隐藏。
+# 未过期 -> "⏳ HH:MM"（默认色）；已过期 -> "⏳ expired"（亮灰）；数据缺失 -> 隐藏。
 transcript_path=$(printf '%s' "$input" | jq -r '.transcript_path // empty' 2>/dev/null)
 debug_cache_ttl=""
 if [ -n "$transcript_path" ] && [ -f "$transcript_path" ]; then
@@ -380,11 +366,11 @@ if [ -n "$transcript_path" ] && [ -f "$transcript_path" ]; then
                 if [ "$cache_expires" -gt "$cache_now" ]; then
                     cache_hhmm=$(date -d "@${cache_expires}" +%H:%M 2>/dev/null)
                     if [ -n "$cache_hhmm" ]; then
-                        line3_segments+=("${E_CACHE} Cache ${cache_hhmm}")
+                        line3_segments+=("${E_CACHE} ${cache_hhmm}")
                         rendered_names+=("cache")
                     fi
                 else
-                    line3_segments+=("${C_SEP}${E_CACHE} Cache expired${C_RESET}")
+                    line3_segments+=("${C_SEP}${E_CACHE} expired${C_RESET}")
                     rendered_names+=("cache")
                 fi
             fi

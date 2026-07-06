@@ -3,7 +3,7 @@
 # Claude Code 自定义 statusline 脚本
 # 布局（三行）：
 #   第1行：路径 | Git分支
-#   第2行：模型(Effort) | Token用量 | Usage配额
+#   第2行：模型(Effort) | Token用量 | 5h配额 | 周配额
 #   第3行：会话时长 | 内存 | 缓存过期时刻 | 花费
 # 依赖：jq、git（无网络请求）；另读取 /proc/meminfo 与 transcript 末尾若干行
 # 设计原则：任一区域数据缺失时该区域（含前导分隔符）整段隐藏；
@@ -18,6 +18,14 @@ C_GREEN='\e[32m'    # 绿色：Git 干净 / 用量低
 C_YELLOW='\e[33m'   # 黄色：Git dirty / 用量中
 C_RED='\e[31m'      # 红色：用量高
 C_MODEL='\e[35m'    # 模型：品红色
+
+# ---------- 第3行段前缀 emoji ----------
+# 均为 Unicode 6.0 emoji-presentation 字符：默认彩色呈现、无需 VS16(U+FE0F)、
+# 在等宽终端里宽度恒为 2 列，渲染稳定（避免 ⏱/⏲ 这类需 VS16、宽度不定的字形）。
+E_UP='🕐'       # 会话时长：钟面
+E_RAM='💾'      # 内存：存储盘
+E_CACHE='⏳'    # 缓存过期：沙漏（倒计时/即将失效；刻意避开日历 emoji 以免误读为日期）
+E_COST='💰'     # 花费：钱袋
 
 # ---------- 工具函数 ----------
 
@@ -266,6 +274,48 @@ if [ -n "$plan_name" ] && [ -n "$five_pct_raw" ]; then
     fi
 fi
 
+# ---- 7 天（周）窗口用量：同源 stdin 的 rate_limits.seven_day，标签 "Week" ----
+# 字段与 five_hour 完全一致（used_percentage / resets_at）；仅 Pro/Max 且首个 API
+# 响应后出现，可独立于 five_hour 缺失，故用 // empty 兜底。gate 与 5h 对称（需 plan_name）。
+seven_pct_raw=$(printf '%s' "$input" | jq -r '.rate_limits.seven_day.used_percentage // empty' 2>/dev/null)
+seven_reset_raw=$(printf '%s' "$input" | jq -r '.rate_limits.seven_day.resets_at // empty' 2>/dev/null)
+
+if [ -n "$plan_name" ] && [ -n "$seven_pct_raw" ]; then
+    week_pct=$(round_num "$seven_pct_raw")
+    if [ -n "$week_pct" ]; then
+        week_color=$(color_for_pct "$week_pct")
+        week_str="Week ${week_pct}%"
+        if [ -n "$seven_reset_raw" ]; then
+            week_reset_epoch=$(to_epoch "$seven_reset_raw")
+            if [[ "$week_reset_epoch" =~ ^[0-9]+$ ]]; then
+                week_now=$(date +%s)
+                week_remain=$(( week_reset_epoch - week_now ))
+                if [ "$week_remain" -gt 0 ]; then
+                    week_d=$(( week_remain / 86400 ))
+                    week_h=$(( (week_remain % 86400) / 3600 ))
+                    week_m=$(( (week_remain % 3600) / 60 ))
+                    if [ "$week_d" -ge 1 ]; then
+                        week_left="${week_d}d ${week_h}h"
+                    elif [ "$week_h" -ge 1 ]; then
+                        week_left="${week_h}h ${week_m}m"
+                    else
+                        week_left="${week_m}m"
+                    fi
+                    # 绝对重置时刻：星期缩写 + 24h 时钟；强制 C locale 保证英文 Fri/Mon（否则随系统语言可能出中文）
+                    week_reset_at=$(LC_ALL=C date -d "@${week_reset_epoch}" '+%a %H:%M' 2>/dev/null)
+                    if [ -n "$week_reset_at" ]; then
+                        week_str="${week_str} (${week_left} / ${week_reset_at})"
+                    else
+                        week_str="${week_str} (${week_left})"
+                    fi
+                fi
+            fi
+        fi
+        line2_segments+=("${week_color}${week_str}${C_RESET}")
+        rendered_names+=("week")
+    fi
+fi
+
 # ================= 6. 会话时长区域（第3行）：默认前景色 =================
 # 数据源：stdin 的 cost.total_duration_ms（会话累计 wall-clock 毫秒）
 dur_ms=$(printf '%s' "$input" | jq -r '.cost.total_duration_ms // empty' 2>/dev/null)
@@ -278,7 +328,7 @@ if [[ "$dur_ms" =~ ^[0-9]+$ ]]; then
         end
     ' 2>/dev/null)
     if [ -n "$dur_str" ]; then
-        line3_segments+=("Up ${dur_str}")
+        line3_segments+=("${E_UP} Up ${dur_str}")
         rendered_names+=("up")
     fi
 fi
@@ -294,7 +344,9 @@ if [ -r /proc/meminfo ]; then
         mem_used_str=$(fmt_gib $(( mem_total_kb - mem_avail_kb )))
         mem_total_str=$(fmt_gib "$mem_total_kb")
         if [ -n "$mem_pct" ] && [ -n "$mem_used_str" ] && [ -n "$mem_total_str" ]; then
-            line3_segments+=("RAM ${mem_pct}% (${mem_used_str}/${mem_total_str})")
+            # 内存占用三档变色（复用 color_for_pct：<50 绿 / 50-79 黄 / >=80 红），与第2行配色一致
+            ram_color=$(color_for_pct "$mem_pct")
+            line3_segments+=("${ram_color}${E_RAM} RAM ${mem_pct}% (${mem_used_str}/${mem_total_str})${C_RESET}")
             rendered_names+=("ram")
         fi
     fi
@@ -327,11 +379,11 @@ if [ -n "$transcript_path" ] && [ -f "$transcript_path" ]; then
                 if [ "$cache_expires" -gt "$cache_now" ]; then
                     cache_hhmm=$(date -d "@${cache_expires}" +%H:%M 2>/dev/null)
                     if [ -n "$cache_hhmm" ]; then
-                        line3_segments+=("Cache ${cache_hhmm}")
+                        line3_segments+=("${E_CACHE} Cache ${cache_hhmm}")
                         rendered_names+=("cache")
                     fi
                 else
-                    line3_segments+=("${C_SEP}Cache expired${C_RESET}")
+                    line3_segments+=("${C_SEP}${E_CACHE} Cache expired${C_RESET}")
                     rendered_names+=("cache")
                 fi
             fi
@@ -345,14 +397,14 @@ cost_usd=$(printf '%s' "$input" | jq -r '.cost.total_cost_usd // empty' 2>/dev/n
 if [ -n "$cost_usd" ]; then
     cost_str=$(cost_fmt "$cost_usd")
     if [ -n "$cost_str" ]; then
-        line3_segments+=("$cost_str")
+        line3_segments+=("${E_COST} $cost_str")
         rendered_names+=("cost")
     fi
 fi
 
 # ================= 组装输出：三行，行内用亮灰色 " | " 分隔 =================
 # 第1行：路径 | Git分支
-# 第2行：模型 | Token用量 | Usage配额
+# 第2行：模型 | Token用量 | 5h配额 | 周配额
 # 第3行：会话时长 | 内存 | 缓存过期时刻 | 花费
 # 某一行全部区域缺失时该行不输出（不留空行）
 line1=""

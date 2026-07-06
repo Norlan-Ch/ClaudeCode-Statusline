@@ -13,11 +13,12 @@
 # ---------- 颜色定义（ANSI 转义序列，最终统一用 printf %b 解释） ----------
 C_RESET='\e[0m'
 C_SEP='\e[90m'      # 分隔符：亮灰/亮黑
-C_PATH='\e[36m'     # 路径：青色
-C_GREEN='\e[32m'    # 绿色：Git 干净 / 用量低
+C_PATH='\e[38;5;208m' # 路径：橙色（256 色，与全部现用色区隔）
+C_GREEN='\e[32m'    # 绿色：用量低
 C_YELLOW='\e[33m'   # 黄色：Git dirty / 用量中
 C_RED='\e[31m'      # 红色：用量高
 C_MODEL='\e[35m'    # 模型：品红色
+C_GITCLEAN='\e[94m' # 亮蓝：Git 干净分支（与用量绿区别）
 
 # ---------- 第3行段前缀 emoji ----------
 # 均为 Unicode 6.0 emoji-presentation 字符：默认彩色呈现、无需 VS16(U+FE0F)、
@@ -152,7 +153,7 @@ if git -C "$git_dir" --no-optional-locks rev-parse --is-inside-work-tree >/dev/n
             git_dirty_count=$(printf '%s\n' "$git_porcelain" | grep -c '^')
             line1_segments+=("${C_YELLOW}${branch_name} *${git_dirty_count}${C_RESET}")
         else
-            line1_segments+=("${C_GREEN}${branch_name}${C_RESET}")
+            line1_segments+=("${C_GITCLEAN}${branch_name}${C_RESET}")
         fi
         rendered_names+=("git")
     fi
@@ -162,8 +163,8 @@ fi
 model_name=$(printf '%s' "$input" | jq -r '.model.display_name // empty' 2>/dev/null)
 effort_level=$(printf '%s' "$input" | jq -r '.effort.level // empty' 2>/dev/null)
 
-# 1M context 变体后缀简写为 [1m]（不含该后缀时无副作用）
-model_name="${model_name/ (1M context)/ [1m]}"
+# 1M context 变体后缀直接去除（token 段的 1.0M 窗口已表明 1M 上下文，无需在模型名重复标记）
+model_name="${model_name/ (1M context)/}"
 
 effort_abbr=""
 case "$effort_level" in

@@ -17,7 +17,7 @@
 渲染样例：
 ```
 ~/workspace/mine | main
-Opus 4.8 [1m] (Max) | 60K/1.0M (6%) | Max 25% (3h 45m / 5h) | Week 41% (3d 4h / Thu 05:27)
+Opus 4.8 (Max) | 60K/1.0M (6%) | Max 25% (3h 45m / 5h) | Week 41% (3d 4h / Thu 05:27)
 🕐 Up 1h 23m | 💾 RAM 21% (4.9G/23G) | ⏳ Cache 21:48 | 💰 $1.23
 ```
 
@@ -48,22 +48,22 @@ Opus 4.8 [1m] (Max) | 60K/1.0M (6%) | Max 25% (3h 45m / 5h) | Week 41% (3d 4h / 
 - **段内降级**：任一区域数据缺失 → 该区域（含前导分隔符）整段隐藏。
 - **整行降级**：某一行所有区域都缺失 → 该行不输出（不留空行）；只有部分行有内容就只输出那些行。
 - **三档变色**（Token 用量、Usage 配额[5h/周]、以及第3行 RAM）：<50% 绿 / 50–79% 黄 / ≥80% 红。第3行**其余段**（会话时长/缓存/花费）一律默认前景色，仅「缓存已过期」用亮灰；RAM 是第3行**唯一**参与变色的段。
-- **颜色**（16 色 ANSI）：分隔符亮灰 `\e[90m`、路径青 `\e[36m`、模型品红 `\e[35m`、绿/黄/红；每色块后 `\e[0m`。
+- **颜色**（16 色 ANSI）：分隔符亮灰 `\e[90m`、路径橙 `\e[38;5;208m`、模型品红 `\e[35m`、Git 干净分支亮蓝 `\e[94m`、用量绿/黄/红；每色块后 `\e[0m`。
 - **第3行 emoji 前缀**（2026-07-06，fable 5 选型）：`🕐 Up` / `💾 RAM` / `⏳ Cache` / `💰 $`。均 Unicode 6.0 emoji-presentation、**无需 VS16(U+FE0F)**、等宽终端宽度恒 2 列（刻意避开 ⏱/⏲ 这类需 VS16、宽度不定者，及 📅/🗓 会把 `HH:MM` 误读为日期者）。作**前缀保留文字标签**（`💾 42%` 单看不辨 RAM/CPU，标签不可省；仅花费段因 `$` 自带标签而无需加词）。段间分隔符仍统一 ` | `（不因 emoji 改双空格，保持三行分隔风格一致）。
 - 渲染装入 `line1_segments` / `line2_segments` / `line3_segments` 三数组，各自拼接、`[ -n ]` 判空后 `printf`。
 
 ## 各区域规格
 
-### 第1行 · 路径（青色）
+### 第1行 · 路径（橙色）
 数据源 `workspace.current_dir`（兜底 `.cwd`）；home 缩 `~`，不截断。
 
 ### 第1行 · Git 分支
-非仓库整段隐藏；干净=绿分支名；dirty（含 untracked）=黄 + ` *N`（N=dirty 文件总数，`printf '%s\n' "$porcelain" | grep -c '^'`，**复用现有 `status --porcelain` 调用，零额外 git 调用**）；detached=7 位短 hash；零提交仓库=`symbolic-ref` 取未诞生分支名。**`*N` 仅在 dirty 时出现、与分支形态无关**——干净的分支名 / detached hash / unborn 分支名都不带数字。
+非仓库整段隐藏；干净=**亮蓝**分支名（`\e[94m`，刻意避开用量低档的绿以免撞色）；dirty（含 untracked）=黄 + ` *N`（N=dirty 文件总数，`printf '%s\n' "$porcelain" | grep -c '^'`，**复用现有 `status --porcelain` 调用，零额外 git 调用**）；detached=7 位短 hash；零提交仓库=`symbolic-ref` 取未诞生分支名。**`*N` 仅在 dirty 时出现、与分支形态无关**——干净的分支名 / detached hash / unborn 分支名都不带数字。
 
 **不显示 ahead/behind**（经权衡放弃）：`@{upstream}` 是每分支唯一的 tracking 配置（`branch.<名>.remote`+`.merge`），显示为 `<remote>/<branch>`，不硬编码 origin、多 remote 不混淆、无 tracking 则该命令失败——语义上完全可实现（`git rev-list --left-right --count @{upstream}...HEAD`，三点对称差同时给领先/落后，diverged 显示 `↑2 ↓1`），但用户主要单机、更看重「手头堆了多少改动」，故只保留工作区计数、省去一次 `rev-list`。
 
 ### 第2行 · 模型 (Effort)（品红色）
-`model.display_name`；`${model_name/ (1M context)/ [1m]}` 把 1M 变体后缀简写为 `[1m]`（普通模型名无副作用）；effort 映射 `low→Low/medium→Med/high→High/xhigh→XHigh/max→Max`，取不到不留空括号。例 `Opus 4.8 [1m] (Max)`。
+`model.display_name`；`${model_name/ (1M context)/}` 把 1M 变体后缀 ` (1M context)` **整段剥除**（token 段的 `1.0M` 窗口已表明 1M 上下文，无需在模型名重复标记；普通模型名无副作用）；effort 映射 `low→Low/medium→Med/high→High/xhigh→XHigh/max→Max`，取不到不留空括号。例 `Opus 4.8 (Max)`。
 
 ### 第2行 · Token 用量（三档变色）
 `5K/200K (2%)`。主路径 stdin `context_window.*`（百分比**优先复用 stdin 的 `used_percentage`**，仅其缺失时才 `t/s*100` 自算）；回退解析 transcript 最后一条 usage（`input+cache_creation+cache_read`，窗口硬编码 200000）。`format_k`：≥999,500→`X.XM`（M 档门槛 999,500 是为 K 档进位，`999,999→1.0M`）、≥1,000→`XK`、<1,000 原值。
@@ -126,7 +126,7 @@ Opus 4.8 [1m] (Max) | 60K/1.0M (6%) | Max 25% (3h 45m / 5h) | Week 41% (3d 4h / 
 ## 已知限制
 
 - Token 回退路径 200K 硬编码窗口对 1M 模型高估百分比。
-- 1M 简写依赖 `display_name` 精确为 `... (1M context)`；文案变则简写失效（回落原样，不报错）。
+- 1M 后缀剥离依赖 `display_name` 精确为 `... (1M context)`；文案变则不剥离（回落原样，不报错）。
 - 缓存段依赖 transcript 记录 `usage.cache_creation` 的 5m/1h 拆分字段；若 CLI 未来改字段名则该段隐藏（降级）。绝对时刻需读者知当前时钟（B 方案唯一代价）。
 - 内存为 WSL2 视角（WSL 虚机内存，非 Windows 全量）——预期行为。
 

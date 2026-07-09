@@ -76,7 +76,7 @@ Opus 4.8 (Max) | 60K/1.0M (6%) | 5h 2% (3h 50min) | 7d 5% (2d 7h, Wed 19:00)
 **7d 窗口** `7d 5% (2d 7h, Wed 19:00)`。同源 stdin `rate_limits.seven_day.*`（字段与 5h 一致：`used_percentage` / `resets_at`，`to_epoch` 兼容 epoch 与 ISO；权威 schema 经 claude-code-guide 确认无 opus 专属窗口）。gate 独立于 five_hour（各自数据）：只含 seven_day 时 7d 照常显示、5h 隐藏。剩余时间三分支：≥1 天 `Xd Yh`、≥1 小时 `Xh Ymin`、否则 `Ymin`；后接 `, ` 再跟**绝对重置时刻**「星期缩写 + 24h」`Wed 19:00`（`LC_ALL=C date '+%a %H:%M'` 强制英文星期）——绝对时刻不依赖 now、空闲不失真，星期缩写为最长 7 天跨度消歧。`rate_limits` 仅 Pro/Max 且首个 API 响应后出现，故 `// empty` 兜底。
 
 ### 第3行 · 会话时长（🕐，默认色）
-数据源 stdin `cost.total_duration_ms`（会话累计 wall-clock 毫秒）。显示 `🕐 <时长>`（2026-07-06 起去 "Up" 文字）；格式（分钟粒度）：`<1m` / `45m` / `1h 23m`。`cost` 对象缺失（旧版 CLI）→ 隐藏。
+数据源 stdin `cost.total_duration_ms`（**进程级**累计 wall-clock 毫秒——随 `claude` 进程生命周期计，`/clear`、`/resume` 均不重置，仅退出重启进程才归零；详见 `INVESTIGATION-cost-duration-reset.md`）。显示 `🕐 <时长>`（2026-07-06 起去 "Up" 文字）；格式（分钟粒度）：`<1m` / `45m` / `1h 23m`。`cost` 对象缺失（旧版 CLI）→ 隐藏。
 
 ### 第3行 · 内存（💾，三档变色）
 系统整体内存：读 `/proc/meminfo` 的 `MemTotal`/`MemAvailable`（kB）。`used% = round((T-A)/T*100)`；绝对值 GiB，`fmt_gib`：≥10G 取整（`23G`）、<10G 一位小数（`4.9G`）。展示 `💾 21% (4.9G/23G)`（2026-07-06 起去 "RAM" 文字）。`/proc/meminfo` 读不到 → 隐藏。**2026-07-06 起套三档变色**（复用 `color_for_pct`，<50 绿 / 50–79 黄 / ≥80 红），是第3行唯一参与变色的段；本机 RAM 基线约 22–27%（24 GiB WSL2），平时绿、负载上来才黄/红。
@@ -92,7 +92,9 @@ Opus 4.8 (Max) | 60K/1.0M (6%) | 5h 2% (3h 50min) | 7d 5% (2d 7h, Wed 19:00)
 **算法**：tail transcript 末尾 ~50 行 → 起算点 = 最后一条 `type=="assistant"` **且带 `usage`** 的 `timestamp`（ISO8601，`to_epoch` 转换）；TTL = 倒序最近一条 `cache_creation` 非零记录的档位；`expires_at = 起算点 + TTL`。渲染：`expires_at > now → ⏳ HH:MM`（`date -d @epoch +%H:%M` 本地时区，默认色）；`≤ now → ⏳ expired`（亮灰）；transcript/assistant/cache_creation 任一缺失 → 隐藏。无 warning 中间态（「快过期」本身 time-based，与「不刷新」冲突）。
 
 ### 第3行 · 花费（💰 $，默认色）
-数据源 stdin `cost.total_cost_usd`（会话累计美元）。`cost_fmt`（jq 判小数位 + printf 补零）：≥1→2 位（`$1.23`）、≥0.1→3 位（`$0.123`）、>0→4 位（`$0.0042`）、`≤0`→`$0.00`（会话累计花费不会为负，负数也归 2 位）。缺失/非数字 → 隐藏。你是 Pro/Max 直连，无 Bedrock/Vertex 顾虑。
+数据源 stdin `cost.total_cost_usd`（**进程级**累计美元——随 `claude` 进程生命周期计，`/clear`、`/resume` 均不重置；详见 `INVESTIGATION-cost-duration-reset.md`）。`cost_fmt`（jq 判小数位 + printf 补零）：≥1→2 位（`$1.23`）、≥0.1→3 位（`$0.123`）、>0→4 位（`$0.0042`）、`≤0`→`$0.00`（进程累计花费不会为负，负数也归 2 位）。缺失/非数字 → 隐藏。你是 Pro/Max 直连，无 Bedrock/Vertex 顾虑。
+
+> **注**：曾于 2026-07-08 实现过「按 `session_id` 存基线、`/clear` 后归零」的方案，2026-07-09 回退。原因：`/resume` 复用同一 `session_id` 但走新进程、`raw` 从 0 起（实测坐实），基线机制解决不了 resume，反徒增 `state/` 文件与清理复杂度。完整调查见 `INVESTIGATION-cost-duration-reset.md`。
 
 ## 调试文件
 

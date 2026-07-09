@@ -304,7 +304,8 @@ if [ -n "$seven_pct_raw" ]; then
 fi
 
 # ================= 6. 会话时长区域（第3行）：默认前景色 =================
-# 数据源：stdin 的 cost.total_duration_ms（会话累计 wall-clock 毫秒）
+# 数据源：stdin 的 cost.total_duration_ms（进程级累计 wall-clock 毫秒；随 CLI 进程生命周期计，
+# /clear、/resume 均不重置——详见 INVESTIGATION-cost-duration-reset.md）。
 dur_ms=$(printf '%s' "$input" | jq -r '.cost.total_duration_ms // empty' 2>/dev/null)
 if [[ "$dur_ms" =~ ^[0-9]+$ ]]; then
     dur_str=$(jq -nr --argjson ms "$dur_ms" '
@@ -379,7 +380,8 @@ if [ -n "$transcript_path" ] && [ -f "$transcript_path" ]; then
 fi
 
 # ================= 9. 花费区域（第3行）：默认前景色 =================
-# 数据源：stdin 的 cost.total_cost_usd（会话累计美元）
+# 数据源：stdin 的 cost.total_cost_usd（进程级累计美元；随 CLI 进程生命周期计，
+# /clear、/resume 均不重置——详见 INVESTIGATION-cost-duration-reset.md）。
 cost_usd=$(printf '%s' "$input" | jq -r '.cost.total_cost_usd // empty' 2>/dev/null)
 if [ -n "$cost_usd" ]; then
     cost_str=$(cost_fmt "$cost_usd")

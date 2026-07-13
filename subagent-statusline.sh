@@ -63,10 +63,12 @@ color_pct() {
     else printf '%s' "$C_GREEN"; fi
 }
 
-# 模型 ID 美化：去 claude- 前缀与尾部 -YYYYMMDD 日期，保留 [1m] 之类后缀
+# 模型 ID 美化：去 claude- 前缀、去 [1m] 之类方括号后缀、去尾部 -YYYYMMDD 日期
+# （窗口大小已由 contextWindowSize 读数体现，[1m] 后缀无需重复显示）
 pretty() {
     local m="${1#claude-}"
-    [[ "$m" =~ ^(.*)-[0-9]{8}(\[.*\])?$ ]] && m="${BASH_REMATCH[1]}${BASH_REMATCH[2]}"
+    m="${m%%\[*}"                                   # 去掉 [1m] 等方括号后缀
+    [[ "$m" =~ ^(.*)-[0-9]{8}$ ]] && m="${BASH_REMATCH[1]}"   # 去掉尾部日期
     printf '%s' "$m"
 }
 

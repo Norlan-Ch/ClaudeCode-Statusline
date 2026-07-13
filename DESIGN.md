@@ -10,14 +10,15 @@
 
 ## 文件清单
 
-所有 statusline 资产集中在 **`~/.claude/statusline/`**（自包含、纳入 git）；仅 `settings.json` 因是 Claude Code 全局配置而留在 `~/.claude/` 根。slash 命令 `statusline-mine.md` 的**真实文件也在本仓库**，靠 `~/.claude/commands/` 下的符号链接被 Claude Code 发现（见下）。
+所有 statusline 资产集中在 **`~/.claude/statusline/`**（自包含、纳入 git）；仅 `settings.json` 因是 Claude Code 全局配置而留在 `~/.claude/` 根。slash 命令 `statusline-mine.md` 的**真实文件也在本仓库**，靠 `~/.claude/commands/` 下的符号链接被 Claude Code 发现（见下）。**换机 / 全新 clone 后跑一次 `install.sh` 建软链、再在 Claude Code 内跑一次 `/statusline-mine` 激活**（见文末 [安装 / 换机](#安装--换机)）。
 
 | 文件 | 作用 |
 |---|---|
 | `~/.claude/statusline/statusline-command.sh` | 主 statusline 脚本（Bash，依赖 `jq` / `git` / `date` / `grep` / `tail`，**无网络请求**；另读 `/proc/meminfo` 与 transcript 末尾若干行。`date` 尤关键：缓存绝对时刻、`to_epoch`、配额剩余全靠它） |
 | `~/.claude/statusline/subagent-statusline.sh` | subagent 面板行脚本（Bash，依赖 `jq` / GNU `date`[`%s%3N` 取毫秒]，**无网络请求**；仅消费 stdin 的 `.tasks[]`，无文件读取） |
 | `~/.claude/statusline/statusline-mine.md` | `/statusline-mine` slash 命令的**真实文件**（纳入本仓库版本管理）；把 `.statusLine.command` 与 `.subagentStatusLine.command` 一并切回本仓库脚本。详见 [与 claude-hud 切换对比](#与-claude-hud-切换对比) |
-| `~/.claude/commands/statusline-mine.md` | **符号链接** → `~/.claude/statusline/statusline-mine.md`。Claude Code 只在 `~/.claude/commands/` 下发现 user 级命令，故在此建软链；软链每次访问都**解析到仓库内真实文件**，因此编辑仓库文件即实时生效、无需拷贝（软链是独立 inode，非 hardlink）。链接本身在仓库外、不被任何 git 跟踪 |
+| `~/.claude/commands/statusline-mine.md` | **符号链接** → `~/.claude/statusline/statusline-mine.md`。Claude Code 只在 `~/.claude/commands/` 下发现 user 级命令，故在此建软链；软链每次访问都**解析到仓库内真实文件**，因此编辑仓库文件即实时生效、无需拷贝（软链是独立 inode，非 hardlink）。链接本身在仓库外、不被任何 git 跟踪，故换机需靠 `install.sh` 重建 |
+| `~/.claude/statusline/install.sh` | **一次性安装脚本**（换机 / 全新 clone 后运行）：**只**在 `~/.claude/commands/` 建命令软链、注册 `/statusline-mine`——这是命令自身无法自举的唯一一步（软链没建好命令就不存在）。**刻意不写 `settings.json`**：激活由 `/statusline-mine` 负责，避免与其重复实现。路径由脚本自身位置推导（clone 到任意目录都对、不硬编码）、尊重 `CLAUDE_CONFIG_DIR`、幂等、改动前一律备份、无 `jq` 依赖。详见文末 [安装 / 换机](#安装--换机) |
 | `~/.claude/statusline/DESIGN.md` | 本设计文档 |
 | `~/.claude/statusline/verify_statusline.sh`<br>`~/.claude/statusline/verify_line3.sh` | 端到端验证脚本（`SCRATCH=$(mktemp -d)` 自建临时目录、可复用） |
 | `~/.claude/statusline/debug.json` | 主 statusline 的运行时调试输出，每次覆盖写入（多会话共享；若目录纳入 git 应 gitignore）。subagent 脚本无调试文件 |
@@ -258,3 +259,25 @@ Claude Code 的 **plugin 机制不能声明主 `statusLine`**（官方 plugins-r
 - 切回本脚本：`/statusline-mine`（user 级自定义命令；真实文件 `~/.claude/statusline/statusline-mine.md` 在本仓库、经 `~/.claude/commands/` 下同名软链被发现；扁平命名、非 plugin）。它用 `jq` **一并**把 `.statusLine.command` 改回 `bash …/statusline-command.sh`、把 `.subagentStatusLine.command` 改回 `bash …/subagent-statusline.sh`（两字段各自 `type` 缺失时顺带用 `//=` 补回），先写临时文件再原子 `mv`，其余所有设置一个不动。一条命令恢复「主行 + subagent 面板行」全套。**为何连 subagent 一起设**：`subagentStatusLine` 虽无 claude-hud 之类竞争者覆盖（见上「注」），但 plugin 机制**允许**声明它（plugins-reference：plugin settings.json 支持 `agent` / `subagentStatusLine`），故顺手纳入以防未来某插件改写、并保持「切回我的全套」语义对称；改动仅在原 `jq` 里多一个字段赋值。`/statusline-mine` 只负责「切回我的脚本」这一个方向，不试图捕获/复现 hud 命令。兜底手段仍可用：`cp $(ls -t ~/.claude/settings.json.bak.* | head -1) ~/.claude/settings.json`，或从 `previous-statusline.txt` 读回旧命令。
 
 **注意**：`CLAUDE_HUD_DISABLE=1 claude` 只在「claude-hud / 空白」间切，**不会回退到本脚本**；且若在 shell profile 里 export 了它会全局静默 claude-hud。改 `.statusLine.command` / `.subagentStatusLine.command` 均**无需重启**、下一次刷新事件即热生效（见上；重启仅作兜底）。
+
+## 安装 / 换机
+
+本仓库自包含,但有两处「仓库外」的接线**不随 git 走**、换机需重建:①`~/.claude/commands/` 下发现 `/statusline-mine` 的软链;②`settings.json` 里指向脚本的两个 `command` 字段。二者分工明确、**不重复实现**:
+
+- **①软链** 由 `install.sh` 建——因为全新 clone 后 `/statusline-mine` 命令尚不存在、无从调用,只能靠外部脚本自举(先有鸡才有蛋)。这是 `install.sh` 唯一职责。
+- **②settings.json** 由 `/statusline-mine` 写——它本就是"一键切回本套 statusline"的命令,是这段设置逻辑的**唯一出处**;`install.sh` 刻意不碰,以免两份 `jq` 漂移。
+
+换机两步:
+
+```bash
+# 第 1 步（shell）：clone（放哪都行，install.sh 会自适应路径）+ 建命令软链
+git clone <repo> ~/.claude/statusline
+bash ~/.claude/statusline/install.sh
+
+# 第 2 步（Claude Code 内）：激活——把 statusLine / subagentStatusLine 指向本仓库脚本
+/statusline-mine
+```
+
+`install.sh` 只做「建软链」一件事,且:`mkdir -p ~/.claude/commands`(对已存在目录是幂等 no-op、不动其中任何文件)后建 `statusline-mine.md` → 仓库内真实文件;已是正确软链则跳过;若原位是普通文件/旧链/断链则先**备份**(`*.bak.<时间戳>-<pid>`,附 pid 防同秒撞名)再替换,**绝不静默删除**。
+
+**路径自适应**:仓库根由 `install.sh` 自身所在目录推导(`BASH_SOURCE`),故 clone 到任意目录都对、不硬编码 `/home/...`;配置目录尊重 `CLAUDE_CONFIG_DIR`(缺省 `~/.claude`)。脚本**无 `jq` 依赖**(纯 coreutils)。第 2 步 `/statusline-mine` 写完 settings 后两行 statusline 均热重载——发一条消息即生效、无需重启。

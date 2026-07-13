@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1180" height="232" viewBox="0 0 1180 232" font-family="'Maple Mono Normal NF CN', 'Maple Mono NF CN', 'Maple Mono', ui-monospace, 'DejaVu Sans Mono', monospace" role="img" aria-label="主三行 statusline 渲染样例">
+  <!-- 终端卡片：黑底 + 细边框 -->
+  <rect x="1" y="1" width="1178" height="230" rx="14" fill="#0d1117" stroke="#30363d" stroke-width="1"/>
+  <!-- 标题栏：窗口红黄绿点 + 右侧标签 -->
+  <circle cx="34" cy="32" r="7" fill="#ff5f56"/>
+  <circle cx="58" cy="32" r="7" fill="#febc2e"/>
+  <circle cx="82" cy="32" r="7" fill="#28c840"/>
+  <text x="1140" y="37" text-anchor="end" font-size="15" fill="#6e7681">主三行 statusline</text>
+  <line x1="0" y1="60" x2="1180" y2="60" stroke="#21262d" stroke-width="1"/>
+  <!-- 三行内容：等宽逐段上色 -->
+  <text font-size="22" xml:space="preserve">
+    <tspan x="40" y="106"><tspan fill="#ff8700">~/workspace/mine</tspan><tspan fill="#6e7681"> | </tspan><tspan fill="#58a6ff">main</tspan></tspan>
+    <tspan x="40" y="150"><tspan fill="#c678dd">Opus 4.8 (Max)</tspan><tspan fill="#6e7681"> | </tspan><tspan fill="#3fb950">60K/1.0M (6%)</tspan><tspan fill="#6e7681"> | </tspan><tspan fill="#3fb950">5h 2% (3h 50min)</tspan><tspan fill="#6e7681"> | </tspan><tspan fill="#3fb950">7d 5% (2d 7h, Wed 19:00)</tspan></tspan>
+    <tspan x="40" y="194"><tspan fill="#e6edf3">🕐 1h 23m</tspan><tspan fill="#6e7681"> | </tspan><tspan fill="#3fb950">💾 21% (4.9G/23G)</tspan><tspan fill="#6e7681"> | </tspan><tspan fill="#e6edf3">⏳ 21:48</tspan><tspan fill="#6e7681"> | </tspan><tspan fill="#e6edf3">💰 $1.23</tspan></tspan>
+  </text>
+</svg>

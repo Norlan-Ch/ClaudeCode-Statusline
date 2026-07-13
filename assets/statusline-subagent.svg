@@ -1,0 +1,21 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1180" height="290" viewBox="0 0 1180 290" font-family="'Maple Mono Normal NF CN', 'Maple Mono NF CN', 'Maple Mono', ui-monospace, 'DejaVu Sans Mono', monospace" role="img" aria-label="Subagent 面板行渲染样例">
+  <!-- 终端卡片：黑底 + 细边框 -->
+  <rect x="1" y="1" width="1178" height="288" rx="14" fill="#0d1117" stroke="#30363d" stroke-width="1"/>
+  <!-- 标题栏：窗口红黄绿点 + 右侧标签 -->
+  <circle cx="34" cy="32" r="7" fill="#ff5f56"/>
+  <circle cx="58" cy="32" r="7" fill="#febc2e"/>
+  <circle cx="82" cy="32" r="7" fill="#28c840"/>
+  <text x="1140" y="37" text-anchor="end" font-size="15" fill="#6e7681">Subagent 面板行</text>
+  <line x1="0" y1="60" x2="1180" y2="60" stroke="#21262d" stroke-width="1"/>
+  <!-- 每个正在运行的 Task 一行：状态点 · 名称 · 模型 · 上下文占用 · 运行时长 -->
+  <text font-size="22" xml:space="preserve">
+    <tspan x="40" y="104"><tspan fill="#3fb950">●</tspan><tspan fill="#e6edf3"> research-agent</tspan><tspan fill="#6e7681"> · </tspan><tspan fill="#af5fff">opus 4.8</tspan><tspan fill="#6e7681"> · </tspan><tspan fill="#3fb950">36K/200K (18%)</tspan><tspan fill="#6e7681"> · </tspan><tspan fill="#e6edf3">2m 18s</tspan></tspan>
+    <tspan x="40" y="146"><tspan fill="#3fb950">●</tspan><tspan fill="#e6edf3"> gpt-worker</tspan><tspan fill="#6e7681"> · </tspan><tspan fill="#005fff">gpt-5.6-luna</tspan><tspan fill="#6e7681"> · </tspan><tspan fill="#3fb950">12K/272K (4%)</tspan><tspan fill="#6e7681"> · </tspan><tspan fill="#e6edf3">42s</tspan></tspan>
+    <tspan x="40" y="188"><tspan fill="#6e7681">○</tspan><tspan fill="#e6edf3"> pending-task</tspan><tspan fill="#6e7681"> · </tspan><tspan fill="#3fb950">haiku 4.5</tspan></tspan>
+  </text>
+  <line x1="40" y1="220" x2="1140" y2="220" stroke="#21262d" stroke-width="1"/>
+  <!-- 模型配色图例：颜色本身即成本信号 -->
+  <text font-size="17" xml:space="preserve">
+    <tspan x="40" y="258"><tspan fill="#6e7681">模型配色   </tspan><tspan fill="#af5fff">opus</tspan><tspan fill="#6e7681">   </tspan><tspan fill="#e3b341">sonnet</tspan><tspan fill="#6e7681">   </tspan><tspan fill="#3fb950">haiku</tspan><tspan fill="#6e7681">   </tspan><tspan fill="#ff0000">f</tspan><tspan fill="#ff8700">a</tspan><tspan fill="#ffff00">b</tspan><tspan fill="#00ff00">l</tspan><tspan fill="#00ffff">e</tspan><tspan fill="#6e7681">   </tspan><tspan fill="#005fff">luna</tspan><tspan fill="#00afff"> terra</tspan><tspan fill="#00ffff"> sol</tspan><tspan fill="#6e7681">   </tspan><tspan fill="#c678dd">其它兜底</tspan></tspan>
+  </text>
+</svg>

@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # statusline 重构后的端到端验证：语法 + 各场景渲染 + 降级/空行/边界
-S=/home/dralfo/.claude/statusline/statusline-command.sh
+DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"   # 脚本自身所在目录 = 仓库根，clone 到任意位置都自适应
+S="$DIR/statusline-command.sh"
 SCRATCH=$(mktemp -d)
 
 strip() { sed $'s/\x1b\\[[0-9;]*m//g'; }   # 去掉 ANSI 颜色，只看结构

@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # 第三行（会话时长 | 内存 | 缓存过期时刻 | 花费）端到端验证
-S=/home/dralfo/.claude/statusline/statusline-command.sh
+DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"   # 脚本自身所在目录 = 仓库根，clone 到任意位置都自适应
+S="$DIR/statusline-command.sh"
 SCRATCH=$(mktemp -d)
 strip() { sed $'s/\x1b\\[[0-9;]*m//g'; }
 
@@ -84,11 +85,11 @@ echo; echo "=========== 原始带色抽查（T1，确认第3行为默认色、Ca
 
 echo; echo "=========== 调试文件 has_cost / cache_ttl 字段 ==========="
 ( cd "$SCRATCH" && printf '%s' "$(mk_stdin "$HOME/ws/mine" 60000 0.5 "$T1H")" | bash "$S" >/dev/null )
-echo "1h stdin -> $(jq -c '{has_cost, cache_ttl, rendered_segments}' /home/dralfo/.claude/statusline/debug.json 2>/dev/null)"
+echo "1h stdin -> $(jq -c '{has_cost, cache_ttl, rendered_segments}' "$DIR/debug.json" 2>/dev/null)"
 ( cd "$SCRATCH" && printf '%s' "$(mk_stdin "$HOME/ws/mine" 60000 0.5 "$T5M")" | bash "$S" >/dev/null )
-echo "5m stdin -> $(jq -c '{has_cost, cache_ttl}' /home/dralfo/.claude/statusline/debug.json 2>/dev/null)"
+echo "5m stdin -> $(jq -c '{has_cost, cache_ttl}' "$DIR/debug.json" 2>/dev/null)"
 ( cd "$SCRATCH" && printf '%s' "$NOCOST" | bash "$S" >/dev/null )
-echo "无cost  -> $(jq -c '{has_cost, cache_ttl}' /home/dralfo/.claude/statusline/debug.json 2>/dev/null)"
+echo "无cost  -> $(jq -c '{has_cost, cache_ttl}' "$DIR/debug.json" 2>/dev/null)"
 
 echo; echo "=========== 前两行回归（home 无 git，确认未被破坏）==========="
 run "T6 home + 前两行" "$(jq -nc --argjson reset "$reset" \

@@ -22,7 +22,7 @@
 | `~/.claude/statusline/DESIGN.md` | 本设计文档 |
 | `~/.claude/statusline/verify_statusline.sh`<br>`~/.claude/statusline/verify_line3.sh` | 端到端验证脚本（`SCRATCH=$(mktemp -d)` 自建临时目录、可复用） |
 | `~/.claude/statusline/debug.json` | 主 statusline 的运行时调试输出，每次覆盖写入（多会话共享；若目录纳入 git 应 gitignore）。subagent 脚本无调试文件 |
-| `~/.claude/settings.json` | `statusLine.command = "bash /home/dralfo/.claude/statusline/statusline-command.sh"`<br>`subagentStatusLine.command = "bash /home/dralfo/.claude/statusline/subagent-statusline.sh"` |
+| `~/.claude/settings.json` | `statusLine.command = "bash <仓库>/statusline-command.sh"`<br>`subagentStatusLine.command = "bash <仓库>/subagent-statusline.sh"`（`<仓库>` 由 `/statusline-mine` 顺命令软链 `readlink -f` 自动推导、非硬编码，故 clone 到任意目录都对） |
 
 ## 主 statusline
 
@@ -280,4 +280,4 @@ bash ~/.claude/statusline/install.sh
 
 `install.sh` 只做「建软链」一件事,且:`mkdir -p ~/.claude/commands`(对已存在目录是幂等 no-op、不动其中任何文件)后建 `statusline-mine.md` → 仓库内真实文件;已是正确软链则跳过;若原位是普通文件/旧链/断链则先**备份**(`*.bak.<时间戳>-<pid>`,附 pid 防同秒撞名)再替换,**绝不静默删除**。
 
-**路径自适应**:仓库根由 `install.sh` 自身所在目录推导(`BASH_SOURCE`),故 clone 到任意目录都对、不硬编码 `/home/...`;配置目录尊重 `CLAUDE_CONFIG_DIR`(缺省 `~/.claude`)。脚本**无 `jq` 依赖**(纯 coreutils)。第 2 步 `/statusline-mine` 写完 settings 后两行 statusline 均热重载——发一条消息即生效、无需重启。
+**路径自适应**:仓库根由 `install.sh` 自身所在目录推导(`BASH_SOURCE`),故 clone 到任意目录都对、不硬编码 `/home/...`;配置目录尊重 `CLAUDE_CONFIG_DIR`(缺省 `~/.claude`)。脚本**无 `jq` 依赖**(纯 coreutils)。第 2 步 `/statusline-mine` **同样自适应**:它用 `readlink -f` 顺 `~/.claude/commands/statusline-mine.md` 软链反推出仓库目录,据此把 `settings.json` 两个 `command` 字段指向仓库脚本——故仓库 clone 到任意位置都指得对、不硬编码 `/home/...`;并尊重 `CLAUDE_CONFIG_DIR`。写完 settings 后两行 statusline 均热重载——发一条消息即生效、无需重启。

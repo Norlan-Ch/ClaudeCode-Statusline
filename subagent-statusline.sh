@@ -4,6 +4,7 @@
 # 布局：状态点 · 名称 · 模型 · 上下文占用 · 运行时长
 #   - 模型按档位上色（opus 紫 / sonnet 黄 / haiku 绿 / fable 七彩 / 其它品红），
 #     颜色本身即成本信号；fable 逐字符赤橙黄绿青蓝紫循环
+#   - GPT 系列（经 cliproxyapi 接入）：luna→terra→sol 由蓝到青渐变
 #   - 上下文占用 = tokenCount/contextWindowSize (百分比)，如 36K/200K (18%)；三档变色（<50 绿 / 50-79 黄 / >=80 红）
 #     窗口未知（v2.1.205 前或未解析）时退化为纯 token 数
 #   - 运行时长由 startTime(毫秒) 与当前时刻实时计算
@@ -18,10 +19,14 @@ now_ms=$(date +%s%3N 2>/dev/null)   # 当前 Unix 毫秒（GNU date）
 # ---------- ANSI 颜色 ----------
 ESC=$'\e'; R="${ESC}[0m"; DIM="${ESC}[90m"
 C_GREEN="${ESC}[32m"; C_YELLOW="${ESC}[33m"; C_RED="${ESC}[31m"; C_MAGENTA="${ESC}[35m"
-# 档位色
+# 档位色（Claude 系列）
 C_OPUS="${ESC}[38;5;135m"   # 紫（最贵）
 C_SONNET="${ESC}[33m"       # 黄（中）
 C_HAIKU="${ESC}[32m"        # 绿（便宜/快）
+# GPT 系列（经 cliproxyapi 接入）：luna→terra→sol 由蓝到青均匀渐变
+C_LUNA="${ESC}[38;5;27m"    # 蓝
+C_TERRA="${ESC}[38;5;39m"   # 天蓝
+C_SOL="${ESC}[38;5;51m"     # 青
 # 七彩循环（赤橙黄绿青蓝紫，256 色索引，用于 fable）
 RAINBOW=(196 208 226 46 51 27 129)
 
@@ -31,6 +36,9 @@ tier_color() {
         *opus*)   printf '%s' "$C_OPUS" ;;
         *sonnet*) printf '%s' "$C_SONNET" ;;
         *haiku*)  printf '%s' "$C_HAIKU" ;;
+        *luna*)   printf '%s' "$C_LUNA" ;;      # GPT 蓝
+        *terra*)  printf '%s' "$C_TERRA" ;;     # GPT 天蓝
+        *sol*)    printf '%s' "$C_SOL" ;;       # GPT 青
         *)        printf '%s' "$C_MAGENTA" ;;   # 未知模型兜底
     esac
 }
@@ -63,13 +71,26 @@ color_pct() {
     else printf '%s' "$C_GREEN"; fi
 }
 
-# 模型 ID 美化：去 claude- 前缀、去 [1m] 之类方括号后缀、去尾部 -YYYYMMDD 日期
-# （窗口大小已由 contextWindowSize 读数体现，[1m] 后缀无需重复显示）
+# 模型 ID 美化：
+#   1) 去 claude- 前缀、去 [1m] 等方括号后缀、去尾部 -YYYYMMDD 日期
+#      （窗口大小已由 contextWindowSize 读数体现，[1m] 后缀无需重复显示）
+#   2) 通用版本号规则：按 - 分段后，相邻「数字段」之间用 . 连接，其余分段用空格分隔
+#      例：opus-4-8 → opus 4.8 ； haiku-4-5 → haiku 4.5 ； sonnet-5 → sonnet 5 ；
+#          gpt-5.6-luna → gpt 5.6 luna（无需针对具体模型名特判）
 pretty() {
     local m="${1#claude-}"
-    m="${m%%\[*}"                                   # 去掉 [1m] 等方括号后缀
-    [[ "$m" =~ ^(.*)-[0-9]{8}$ ]] && m="${BASH_REMATCH[1]}"   # 去掉尾部日期
-    printf '%s' "$m"
+    m="${m%%\[*}"                                            # 去掉 [1m] 等方括号后缀
+    [[ "$m" =~ ^(.*)-[0-9]{8}$ ]] && m="${BASH_REMATCH[1]}"  # 去掉尾部日期
+    local out="" prev="" tok oldIFS="$IFS"
+    IFS='-'
+    for tok in $m; do
+        if   [ -z "$out" ]; then out="$tok"
+        elif [[ "$prev" =~ ^[0-9.]+$ && "$tok" =~ ^[0-9.]+$ ]]; then out="${out}.${tok}"  # 数字段相连 → 点
+        else out="${out} ${tok}"; fi                                                      # 否则 → 空格
+        prev="$tok"
+    done
+    IFS="$oldIFS"
+    printf '%s' "$out"
 }
 
 # 渲染模型段：fable 走七彩，其余走档位单色

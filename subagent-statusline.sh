@@ -71,13 +71,14 @@ color_pct() {
     else printf '%s' "$C_GREEN"; fi
 }
 
-# 模型 ID 美化：
-#   1) 去 claude- 前缀、去 [1m] 等方括号后缀、去尾部 -YYYYMMDD 日期
-#      （窗口大小已由 contextWindowSize 读数体现，[1m] 后缀无需重复显示）
-#   2) 通用版本号规则：按 - 分段后，相邻「数字段」之间用 . 连接，其余分段用空格分隔
-#      例：opus-4-8 → opus 4.8 ； haiku-4-5 → haiku 4.5 ； sonnet-5 → sonnet 5 ；
-#          gpt-5.6-luna → gpt 5.6 luna（无需针对具体模型名特判）
+# 模型 ID 美化（仅作用于 Claude 系列，按 provider 命名空间 claude- 前缀区分）：
+#   - 非 claude- 前缀（如经 cliproxyapi 接入的 gpt-5.6-luna）原样返回，保持官方 ID 形态
+#   - Claude 系列：去 claude- 前缀、去 [1m] 等方括号后缀、去尾部 -YYYYMMDD 日期
+#     （窗口大小已由 contextWindowSize 读数体现，[1m] 后缀无需重复显示），
+#     再走通用版本号规则：按 - 分段后相邻「数字段」用 . 连接、其余分段用空格分隔
+#     例：opus-4-8 → opus 4.8 ； haiku-4-5 → haiku 4.5 ； sonnet-5 → sonnet 5（不针对具体模型名特判）
 pretty() {
+    case "$1" in claude-*) ;; *) printf '%s' "$1"; return ;; esac   # 非 Claude：原样
     local m="${1#claude-}"
     m="${m%%\[*}"                                            # 去掉 [1m] 等方括号后缀
     [[ "$m" =~ ^(.*)-[0-9]{8}$ ]] && m="${BASH_REMATCH[1]}"  # 去掉尾部日期

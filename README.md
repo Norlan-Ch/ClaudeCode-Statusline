@@ -29,13 +29,13 @@ Opus 4.8 (Max) | 60K/1.0M (6%) | 5h 2% (3h 50min) | 7d 5% (2d 7h, Wed 19:00)
 
 Subagent 面板行（模型段按档位 / 系列上色，颜色本身即成本信号）：
 
-<img src="assets/statusline-subagent.png" alt="Subagent 面板行：research-agent · opus 4.8（紫）· 36K/200K (18%) · 2m 18s；gpt-worker · gpt-5.6-luna（蓝）· 12K/272K (4%) · 42s；pending-task · haiku 4.5（绿）。底部图例展示模型配色：opus 紫 / sonnet 黄 / haiku 绿 / fable 七彩 / luna→terra→sol 蓝到青 / 其它兜底品红。" width="100%">
+<img src="assets/statusline-subagent.png" alt="Subagent 面板行：research-agent · opus 4.8（紫）· 711K/1M (71%，黄=中档占用) · 2m 18s；gpt-worker · gpt-5.6-luna（蓝）· 12K/372K (3%) · 42s；pending-task · haiku 4.5（绿）。底部图例展示模型配色：opus 紫 / sonnet 黄 / haiku 绿 / fable 七彩 / luna→terra→sol 蓝到青 / 其它兜底品红。" width="100%">
 
 <details><summary>纯文本样例</summary>
 
 ```
-● research-agent · opus 4.8 · 36K/200K (18%) · 2m 18s
-● gpt-worker · gpt-5.6-luna · 12K/272K (4%) · 42s
+● research-agent · opus 4.8 · 711K/1M (71%) · 2m 18s
+● gpt-worker · gpt-5.6-luna · 12K/372K (3%) · 42s
 ○ pending-task · haiku 4.5
 ```
 

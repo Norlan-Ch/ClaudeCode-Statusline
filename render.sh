@@ -63,7 +63,7 @@ fc-cache -f "$TMP/fonts" >/dev/null 2>&1 || true
 
 echo "render.sh: chrome=$CHROME"
 echo "render.sh: maple=$(basename "$MAPLE")"
-echo "render.sh: emoji=${EMOJI:+$(basename "$EMOJI")}${EMOJI:-（无）}"
+if [ -n "$EMOJI" ]; then echo "render.sh: emoji=$(basename "$EMOJI")"; else echo "render.sh: emoji=（无）"; fi
 
 # ---------- 5. 逐张 SVG 渲染成 2x PNG ----------
 # 从根 <svg> 标签解析声明宽高（各只有一个），窗口即设为该尺寸、device-scale 2 → 恰好 2x

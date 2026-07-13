@@ -9,8 +9,8 @@
   <line x1="0" y1="60" x2="1180" y2="60" stroke="#21262d" stroke-width="1"/>
   <!-- 每个正在运行的 Task 一行：状态点 · 名称 · 模型 · 上下文占用 · 运行时长 -->
   <text font-size="22" xml:space="preserve">
-    <tspan x="40" y="104"><tspan fill="#3fb950">●</tspan><tspan fill="#e6edf3"> research-agent</tspan><tspan fill="#6e7681"> · </tspan><tspan fill="#af5fff">opus 4.8</tspan><tspan fill="#6e7681"> · </tspan><tspan fill="#3fb950">36K/200K (18%)</tspan><tspan fill="#6e7681"> · </tspan><tspan fill="#e6edf3">2m 18s</tspan></tspan>
-    <tspan x="40" y="146"><tspan fill="#3fb950">●</tspan><tspan fill="#e6edf3"> gpt-worker</tspan><tspan fill="#6e7681"> · </tspan><tspan fill="#005fff">gpt-5.6-luna</tspan><tspan fill="#6e7681"> · </tspan><tspan fill="#3fb950">12K/272K (4%)</tspan><tspan fill="#6e7681"> · </tspan><tspan fill="#e6edf3">42s</tspan></tspan>
+    <tspan x="40" y="104"><tspan fill="#3fb950">●</tspan><tspan fill="#e6edf3"> research-agent</tspan><tspan fill="#6e7681"> · </tspan><tspan fill="#af5fff">opus 4.8</tspan><tspan fill="#6e7681"> · </tspan><tspan fill="#e3b341">711K/1M (71%)</tspan><tspan fill="#6e7681"> · </tspan><tspan fill="#e6edf3">2m 18s</tspan></tspan>
+    <tspan x="40" y="146"><tspan fill="#3fb950">●</tspan><tspan fill="#e6edf3"> gpt-worker</tspan><tspan fill="#6e7681"> · </tspan><tspan fill="#005fff">gpt-5.6-luna</tspan><tspan fill="#6e7681"> · </tspan><tspan fill="#3fb950">12K/372K (3%)</tspan><tspan fill="#6e7681"> · </tspan><tspan fill="#e6edf3">42s</tspan></tspan>
     <tspan x="40" y="188"><tspan fill="#6e7681">○</tspan><tspan fill="#e6edf3"> pending-task</tspan><tspan fill="#6e7681"> · </tspan><tspan fill="#3fb950">haiku 4.5</tspan></tspan>
   </text>
   <line x1="40" y1="220" x2="1140" y2="220" stroke="#21262d" stroke-width="1"/>

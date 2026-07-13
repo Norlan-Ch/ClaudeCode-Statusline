@@ -170,8 +170,8 @@ Claude Code 在 subagent 面板中为每个 Task 渲染一行。本脚本读 std
 
 渲染样例（ANSI 上色后示意）：
 ```
-● research-agent · opus 4.8 · 36K/200K (18%) · 2m 18s
-● gpt-worker · gpt-5.6-luna · 12K/272K (4%) · 42s
+● research-agent · opus 4.8 · 711K/1M (71%) · 2m 18s
+● gpt-worker · gpt-5.6-luna · 12K/372K (3%) · 42s
 ○ pending-task · haiku 4.5
 ```
 
@@ -223,7 +223,7 @@ Claude Code 在 subagent 面板中为每个 Task 渲染一行。本脚本读 std
 
 ### 上下文占用段（三档变色；窗口未知则退化）
 
-`tokenCount/contextWindowSize (占用%)`，如 `36K/200K (18%)`。占用率三档变色（复用 `color_pct`：<50 绿 / 50–79 黄 / ≥80 红，与主 statusline 同调色）。
+`tokenCount/contextWindowSize (占用%)`，如 `711K/1M (71%)`。占用率三档变色（复用 `color_pct`：<50 绿 / 50–79 黄 / ≥80 红，与主 statusline 同调色）。
 
 - `contextWindowSize` 与 `tokenCount` 齐备（且窗口非 0）→ 完整 `token/window (pct%)`。
 - **窗口未知**（v2.1.205 前或未解析）但有 `tokenCount` → 退化为纯 token 数（`fmt_tok`）。
